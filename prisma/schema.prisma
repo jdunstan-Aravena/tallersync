@@ -1,0 +1,436 @@
+// TallerSync — schema.prisma
+// Stack: Next.js + Prisma + PostgreSQL
+// Generado con: prisma generate | prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// MULTI-TENANCY
+// ─────────────────────────────────────────────
+
+model Organizacion {
+  id       String   @id @default(cuid())
+  nombre   String
+  logo     String?
+  plan     Plan     @default(FREE)
+  activa   Boolean  @default(true)
+  creadoEn DateTime @default(now())
+
+  locales           Local[]
+  usuarios          Usuario[]
+  categoriasRepuestos CategoriaRepuesto[]
+
+  @@map("organizaciones")
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+// ─────────────────────────────────────────────
+// LOCALES Y USUARIOS
+// ─────────────────────────────────────────────
+
+model Local {
+  id        String   @id @default(cuid())
+  nombre    String
+  slug      String   @unique // ej: "santiago-centro" → URL amigable
+  direccion String?
+  telefono  String?
+  email     String?
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
+
+  usuarios      UsuarioLocal[]
+  ordenes       OrdenTrabajo[]
+  ordenesCompra OrdenCompra[]
+  repuestos     Repuesto[]
+
+  @@map("locales")
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  rol          Rol      @default(TECNICO)
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
+
+  locales              UsuarioLocal[]
+  ordenesAsignadas     OrdenTrabajo[] @relation("TecnicoOrdenes")
+  ordenesCreadas       OrdenTrabajo[] @relation("CreadoByOrdenes")
+  ordenesCompraCreadas OrdenCompra[]  @relation("CreadoByOrdenesCompra")
+  ordenesCompraAsignadas OrdenCompra[] @relation("TecnicoAsignadoOrdenesCompra")
+  historialCambios     HistorialOT[]
+
+  @@map("usuarios")
+}
+
+enum Rol {
+  ADMIN // Ve todo, configura la organización
+  RECEPCION // Crea OTs, atiende clientes
+  TECNICO // Ve y actualiza sus OTs asignadas
+}
+
+// Tabla pivote: un usuario puede operar en múltiples locales
+model UsuarioLocal {
+  id          String  @id @default(cuid())
+  esPrincipal Boolean @default(false)
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  localId String
+  local   Local  @relation(fields: [localId], references: [id])
+
+  @@unique([usuarioId, localId])
+  @@map("usuarios_locales")
+}
+
+// ─────────────────────────────────────────────
+// CLIENTES Y EQUIPOS
+// ─────────────────────────────────────────────
+
+model Cliente {
+  id               String   @id @default(cuid())
+  nombre           String
+  email            String?
+  telefono         String?
+  rut              String? // opcional, Chile/Latam
+  notas            String?
+  tokenSeguimiento String   @unique @default(cuid()) // token público para portal
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
+
+  equipos        Equipo[]
+  ordenes        OrdenTrabajo[]
+  notificaciones Notificacion[]
+
+  @@map("clientes")
+}
+
+model Equipo {
+  id          String     @id @default(cuid())
+  tipo        TipoEquipo
+  marca       String
+  modelo      String
+  numeroSerie String?
+  color       String?
+  accesorios  String? // "cargador, funda" — texto libre
+  notas       String?
+  creadoEn    DateTime   @default(now())
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  ordenes OrdenTrabajo[]
+
+  @@map("equipos")
+}
+
+enum TipoEquipo {
+  CELULAR
+  TABLET
+  NOTEBOOK
+  PC_ESCRITORIO
+  CONSOLA
+  ELECTRODOMESTICO
+  OTRO
+}
+
+// ─────────────────────────────────────────────
+// ORDEN DE TRABAJO — entidad central
+// ─────────────────────────────────────────────
+
+model OrdenTrabajo {
+  id     String   @id @default(cuid())
+  numero Int // número legible, ej: 241
+  estado EstadoOT @default(RECIBIDO)
+
+  // Descripción del problema
+  falla       String // descripción del cliente
+  diagnostico String? // evaluación técnica
+  solucion    String? // trabajo realizado
+
+  // Garantía y condiciones
+  condicionIngreso    String? // "pantalla rayada, sin cargador"
+  garantiaDias        Int      @default(30)
+  requierePresupuesto Boolean  @default(false)
+  presupuestoAprobado Boolean? // null = pendiente
+
+  // Fechas
+  fechaIngreso    DateTime  @default(now())
+  fechaCompromiso DateTime? // fecha prometida al cliente
+  fechaEntrega    DateTime? // fecha real de entrega
+
+  // Totales calculados (desnormalizados para performance)
+  totalManoObra  Decimal @default(0) @db.Decimal(10, 2)
+  totalRepuestos Decimal @default(0) @db.Decimal(10, 2)
+  total          Decimal @default(0) @db.Decimal(10, 2)
+
+  // Token público para el portal de seguimiento del cliente
+  tokenPublico String @unique @default(cuid())
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  equipoId String
+  equipo   Equipo @relation(fields: [equipoId], references: [id])
+
+  localId String
+  local   Local  @relation(fields: [localId], references: [id])
+
+  tecnicoId String? // nullable: sin asignar al ingresar
+  tecnico   Usuario? @relation("TecnicoOrdenes", fields: [tecnicoId], references: [id])
+
+  creadoPorId String
+  creadoPor   Usuario @relation("CreadoByOrdenes", fields: [creadoPorId], references: [id])
+
+  fotos          FotoOT[]
+  items          ItemOT[]
+  historial      HistorialOT[]
+  notificaciones Notificacion[]
+
+  // Número autoincremental por local (no global)
+  @@unique([localId, numero])
+  @@map("ordenes_trabajo")
+}
+
+enum EstadoOT {
+  RECIBIDO // acaba de ingresar
+  EN_DIAGNOSTICO // técnico evaluando
+  ESPERANDO_REPUESTO // en espera de pieza
+  EN_REPARACION // trabajo en curso
+  CONTROL_CALIDAD // revisión final
+  LISTO_RETIRO // avisado al cliente
+  ENTREGADO // cerrado
+  CANCELADO // no se repara
+}
+
+// ─────────────────────────────────────────────
+// FOTOS DE LA OT
+// ─────────────────────────────────────────────
+
+model FotoOT {
+  id       String   @id @default(cuid())
+  url      String // URL pública (UploadThing CDN)
+  key      String // key interna UploadThing (para borrar)
+  nombre   String?
+  tipo     TipoFoto @default(INGRESO)
+  creadoEn DateTime @default(now())
+
+  ordenId String
+  orden   OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@map("fotos_ot")
+}
+
+enum TipoFoto {
+  INGRESO // estado al recibir el equipo
+  PROCESO // durante la reparación
+  ENTREGA // estado al entregar
+}
+
+// ─────────────────────────────────────────────
+// ITEMS DE LA OT (presupuesto detallado)
+// ─────────────────────────────────────────────
+
+model ItemOT {
+  id             String   @id @default(cuid())
+  descripcion    String
+  cantidad       Int      @default(1)
+  precioUnitario Decimal  @db.Decimal(10, 2)
+  subtotal       Decimal  @db.Decimal(10, 2)
+  tipo           TipoItem @default(MANO_OBRA)
+  creadoEn       DateTime @default(now())
+
+  ordenId String
+  orden   OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  // Opcional: vincula con repuesto del inventario
+  repuestoId String?
+  repuesto   Repuesto? @relation(fields: [repuestoId], references: [id])
+
+  @@map("items_ot")
+}
+
+enum TipoItem {
+  MANO_OBRA
+  REPUESTO
+  SERVICIO_EXTERNO
+}
+
+// ─────────────────────────────────────────────
+// HISTORIAL / AUDITORÍA DE LA OT
+// ─────────────────────────────────────────────
+
+model HistorialOT {
+  id               String    @id @default(cuid())
+  estadoAnterior   EstadoOT?
+  estadoNuevo      EstadoOT
+  nota             String? // comentario del técnico/admin
+  esVisibleCliente Boolean   @default(false) // si aparece en el portal público
+  creadoEn         DateTime  @default(now())
+
+  ordenId String
+  orden   OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("historial_ot")
+}
+
+// ─────────────────────────────────────────────
+// INVENTARIO DE REPUESTOS
+// ─────────────────────────────────────────────
+
+model Repuesto {
+  id            String   @id @default(cuid())
+  nombre        String
+  sku           String?
+  descripcion   String?
+  precioCompra  Decimal? @db.Decimal(10, 2)
+  precioVenta   Decimal  @db.Decimal(10, 2)
+  stockActual   Int      @default(0)
+  stockMinimo   Int      @default(1) // alerta de reposición
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  localId String
+  local   Local  @relation(fields: [localId], references: [id])
+
+  categoriaId String?
+  categoria   CategoriaRepuesto? @relation(fields: [categoriaId], references: [id])
+
+  itemsOT          ItemOT[]
+  itemsOrdenCompra ItemOrdenCompra[]
+
+  @@unique([localId, sku])
+  @@map("repuestos")
+}
+
+// ─────────────────────────────────────────────
+// CATEGORÍAS DE REPUESTOS
+// ─────────────────────────────────────────────
+
+model CategoriaRepuesto {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String?
+  activo      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
+
+  repuestos Repuesto[]
+
+  @@unique([organizacionId, nombre])
+  @@map("categorias_repuestos")
+}
+
+enum EstadoOrdenCompra {
+  BORRADOR
+  ENVIADA
+  RECIBIDA
+  CANCELADA
+}
+
+model OrdenCompra {
+  id            String            @id @default(cuid())
+  numero        Int
+  estado        EstadoOrdenCompra @default(BORRADOR)
+  proveedor     String?
+  nota          String?           @db.Text
+  total         Decimal           @default(0) @db.Decimal(10, 2)
+  creadoEn      DateTime          @default(now())
+  actualizadoEn DateTime          @updatedAt
+
+  localId String
+  local   Local  @relation(fields: [localId], references: [id])
+
+  creadoPorId String
+  creadoPor   Usuario @relation("CreadoByOrdenesCompra", fields: [creadoPorId], references: [id])
+
+  tecnicoAsignadoId String?
+  tecnicoAsignado   Usuario? @relation("TecnicoAsignadoOrdenesCompra", fields: [tecnicoAsignadoId], references: [id])
+
+  items ItemOrdenCompra[]
+
+  @@unique([localId, numero])
+  @@map("ordenes_compra")
+}
+
+model ItemOrdenCompra {
+  id            String   @id @default(cuid())
+  descripcion   String
+  cantidad      Int
+  costoUnitario Decimal  @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  creadoEn      DateTime @default(now())
+
+  ordenCompraId String
+  ordenCompra   OrdenCompra @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+
+  repuestoId String?
+  repuesto   Repuesto? @relation(fields: [repuestoId], references: [id])
+
+  @@map("items_orden_compra")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICACIONES DE EMAIL
+// ─────────────────────────────────────────────
+
+model Notificacion {
+  id           String           @id @default(cuid())
+  tipo         TipoNotificacion
+  asunto       String
+  cuerpo       String           @db.Text
+  estadoEnvio  EstadoEnvio      @default(PENDIENTE)
+  errorMensaje String?
+  enviadoEn    DateTime?
+  creadoEn     DateTime         @default(now())
+
+  ordenId String?
+  orden   OrdenTrabajo? @relation(fields: [ordenId], references: [id])
+
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  @@map("notificaciones")
+}
+
+enum TipoNotificacion {
+  CAMBIO_ESTADO // OT pasó a nuevo estado
+  LISTO_RETIRO // equipo listo para retirar
+  PRESUPUESTO // presupuesto enviado para aprobación
+  RECORDATORIO // OT sin movimiento por N días
+}
+
+enum EstadoEnvio {
+  PENDIENTE
+  ENVIADO
+  ERROR
+}
