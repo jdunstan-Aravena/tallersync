@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormStatus } from "react-dom"
-import { TipoEquipo } from "@prisma/client"
+import type { TipoEquipo } from "@prisma/client"
 import type { DashboardLocal } from "../dashboard-data"
 import WorkOrderTemplate from "./WorkOrderTemplate"
 import {
@@ -69,13 +69,13 @@ function SubmitButton({ editing }: { editing: boolean }) {
 const initialState: CreateWorkOrderState = {}
 
 const equipoTipos = [
-  { value: TipoEquipo.ELECTRODOMESTICO, label: "Electrodoméstico" },
-  { value: TipoEquipo.CELULAR, label: "Celular" },
-  { value: TipoEquipo.TABLET, label: "Tablet" },
-  { value: TipoEquipo.NOTEBOOK, label: "Notebook" },
-  { value: TipoEquipo.PC_ESCRITORIO, label: "PC de escritorio" },
-  { value: TipoEquipo.CONSOLA, label: "Consola" },
-  { value: TipoEquipo.OTRO, label: "Otro" },
+  { value: "ELECTRODOMESTICO" as TipoEquipo, label: "Electrodoméstico" },
+  { value: "CELULAR" as TipoEquipo, label: "Celular" },
+  { value: "TABLET" as TipoEquipo, label: "Tablet" },
+  { value: "NOTEBOOK" as TipoEquipo, label: "Notebook" },
+  { value: "PC_ESCRITORIO" as TipoEquipo, label: "PC de escritorio" },
+  { value: "CONSOLA" as TipoEquipo, label: "Consola" },
+  { value: "OTRO" as TipoEquipo, label: "Otro" },
 ]
 
 export default function CreateWorkOrderForm({ local, locales, orders, tecnicos }: CreateWorkOrderFormProps) {
