@@ -12,6 +12,8 @@ type SessionToken = {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
+
   session: {
     strategy: "jwt",
     maxAge: 15 * 60, // 15 minutos en segundos
