@@ -25,6 +25,7 @@ async function getOrCreateCliente(tx: Prisma.TransactionClient, nombre: string, 
         nombre,
         email: email || null,
         telefono: telefono || null,
+        organizacionId: (await getDashboardContext()).organization.id,
       },
     })
   }
