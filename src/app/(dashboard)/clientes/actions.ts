@@ -50,6 +50,7 @@ export async function saveClientAction(
         telefono: telefono || null,
         rut: rut || null,
         notas: notas || null,
+        organizacionId: context.organization.id,
       },
     })
 
