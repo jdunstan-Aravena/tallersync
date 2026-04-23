@@ -1,6 +1,9 @@
 // TallerSync — schema.prisma
 // Stack: Next.js + Prisma + PostgreSQL
-// Generado con: prisma generate | prisma migrate dev
+// Fixes aplicados:
+//   1. CategoriaRepuesto agregada correctamente con relación a Repuesto
+//   2. Cliente ahora tiene organizacionId (multi-tenancy correcto)
+//   3. Notificacion tiene canal (EMAIL / WHATSAPP / LINK_WHATSAPP) y telefonoDestino
 
 generator client {
   provider = "prisma-client-js"
@@ -22,8 +25,9 @@ model Organizacion {
   activa   Boolean  @default(true)
   creadoEn DateTime @default(now())
 
-  locales           Local[]
-  usuarios          Usuario[]
+  locales             Local[]
+  usuarios            Usuario[]
+  clientes            Cliente[]
   categoriasRepuestos CategoriaRepuesto[]
 
   @@map("organizaciones")
@@ -41,7 +45,7 @@ enum Plan {
 model Local {
   id        String   @id @default(cuid())
   nombre    String
-  slug      String   @unique // ej: "santiago-centro" → URL amigable
+  slug      String   @unique
   direccion String?
   telefono  String?
   email     String?
@@ -71,23 +75,22 @@ model Usuario {
   organizacionId String
   organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
 
-  locales              UsuarioLocal[]
-  ordenesAsignadas     OrdenTrabajo[] @relation("TecnicoOrdenes")
-  ordenesCreadas       OrdenTrabajo[] @relation("CreadoByOrdenes")
-  ordenesCompraCreadas OrdenCompra[]  @relation("CreadoByOrdenesCompra")
-  ordenesCompraAsignadas OrdenCompra[] @relation("TecnicoAsignadoOrdenesCompra")
-  historialCambios     HistorialOT[]
+  locales                    UsuarioLocal[]
+  ordenesAsignadas           OrdenTrabajo[] @relation("TecnicoOrdenes")
+  ordenesCreadas             OrdenTrabajo[] @relation("CreadoByOrdenes")
+  ordenesCompraCreadas       OrdenCompra[]  @relation("CreadoByOrdenesCompra")
+  ordenesCompraAsignadas     OrdenCompra[]  @relation("TecnicoAsignadoOrdenesCompra")
+  historialCambios           HistorialOT[]
 
   @@map("usuarios")
 }
 
 enum Rol {
-  ADMIN // Ve todo, configura la organización
-  RECEPCION // Crea OTs, atiende clientes
-  TECNICO // Ve y actualiza sus OTs asignadas
+  ADMIN      // Ve todo, configura la organización
+  RECEPCION  // Crea OTs, atiende clientes
+  TECNICO    // Ve y actualiza sus OTs asignadas
 }
 
-// Tabla pivote: un usuario puede operar en múltiples locales
 model UsuarioLocal {
   id          String  @id @default(cuid())
   esPrincipal Boolean @default(false)
@@ -111,11 +114,15 @@ model Cliente {
   nombre           String
   email            String?
   telefono         String?
-  rut              String? // opcional, Chile/Latam
+  rut              String?
   notas            String?
-  tokenSeguimiento String   @unique @default(cuid()) // token público para portal
+  tokenSeguimiento String   @unique @default(cuid())
   creadoEn         DateTime @default(now())
   actualizadoEn    DateTime @updatedAt
+
+  // FIX 2: organizacionId agregado para correcto aislamiento multi-tenant
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
 
   equipos        Equipo[]
   ordenes        OrdenTrabajo[]
@@ -131,7 +138,7 @@ model Equipo {
   modelo      String
   numeroSerie String?
   color       String?
-  accesorios  String? // "cargador, funda" — texto libre
+  accesorios  String?
   notas       String?
   creadoEn    DateTime   @default(now())
 
@@ -159,37 +166,30 @@ enum TipoEquipo {
 
 model OrdenTrabajo {
   id     String   @id @default(cuid())
-  numero Int // número legible, ej: 241
+  numero Int
   estado EstadoOT @default(RECIBIDO)
 
-  // Descripción del problema
-  falla       String // descripción del cliente
-  diagnostico String? // evaluación técnica
-  solucion    String? // trabajo realizado
+  falla       String
+  diagnostico String?
+  solucion    String?
 
-  // Garantía y condiciones
-  condicionIngreso    String? // "pantalla rayada, sin cargador"
+  condicionIngreso    String?
   garantiaDias        Int      @default(30)
   requierePresupuesto Boolean  @default(false)
-  presupuestoAprobado Boolean? // null = pendiente
+  presupuestoAprobado Boolean?
 
-  // Fechas
   fechaIngreso    DateTime  @default(now())
-  fechaCompromiso DateTime? // fecha prometida al cliente
-  fechaEntrega    DateTime? // fecha real de entrega
+  fechaCompromiso DateTime?
+  fechaEntrega    DateTime?
 
-  // Totales calculados (desnormalizados para performance)
   totalManoObra  Decimal @default(0) @db.Decimal(10, 2)
   totalRepuestos Decimal @default(0) @db.Decimal(10, 2)
   total          Decimal @default(0) @db.Decimal(10, 2)
 
-  // Token público para el portal de seguimiento del cliente
-  tokenPublico String @unique @default(cuid())
-
+  tokenPublico  String   @unique @default(cuid())
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  // Relaciones
   clienteId String
   cliente   Cliente @relation(fields: [clienteId], references: [id])
 
@@ -199,7 +199,7 @@ model OrdenTrabajo {
   localId String
   local   Local  @relation(fields: [localId], references: [id])
 
-  tecnicoId String? // nullable: sin asignar al ingresar
+  tecnicoId String?
   tecnico   Usuario? @relation("TecnicoOrdenes", fields: [tecnicoId], references: [id])
 
   creadoPorId String
@@ -210,20 +210,19 @@ model OrdenTrabajo {
   historial      HistorialOT[]
   notificaciones Notificacion[]
 
-  // Número autoincremental por local (no global)
   @@unique([localId, numero])
   @@map("ordenes_trabajo")
 }
 
 enum EstadoOT {
-  RECIBIDO // acaba de ingresar
-  EN_DIAGNOSTICO // técnico evaluando
-  ESPERANDO_REPUESTO // en espera de pieza
-  EN_REPARACION // trabajo en curso
-  CONTROL_CALIDAD // revisión final
-  LISTO_RETIRO // avisado al cliente
-  ENTREGADO // cerrado
-  CANCELADO // no se repara
+  RECIBIDO
+  EN_DIAGNOSTICO
+  ESPERANDO_REPUESTO
+  EN_REPARACION
+  CONTROL_CALIDAD
+  LISTO_RETIRO
+  ENTREGADO
+  CANCELADO
 }
 
 // ─────────────────────────────────────────────
@@ -232,8 +231,8 @@ enum EstadoOT {
 
 model FotoOT {
   id       String   @id @default(cuid())
-  url      String // URL pública (UploadThing CDN)
-  key      String // key interna UploadThing (para borrar)
+  url      String
+  key      String
   nombre   String?
   tipo     TipoFoto @default(INGRESO)
   creadoEn DateTime @default(now())
@@ -245,13 +244,13 @@ model FotoOT {
 }
 
 enum TipoFoto {
-  INGRESO // estado al recibir el equipo
-  PROCESO // durante la reparación
-  ENTREGA // estado al entregar
+  INGRESO
+  PROCESO
+  ENTREGA
 }
 
 // ─────────────────────────────────────────────
-// ITEMS DE LA OT (presupuesto detallado)
+// ITEMS DE LA OT
 // ─────────────────────────────────────────────
 
 model ItemOT {
@@ -266,7 +265,6 @@ model ItemOT {
   ordenId String
   orden   OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
 
-  // Opcional: vincula con repuesto del inventario
   repuestoId String?
   repuesto   Repuesto? @relation(fields: [repuestoId], references: [id])
 
@@ -287,8 +285,8 @@ model HistorialOT {
   id               String    @id @default(cuid())
   estadoAnterior   EstadoOT?
   estadoNuevo      EstadoOT
-  nota             String? // comentario del técnico/admin
-  esVisibleCliente Boolean   @default(false) // si aparece en el portal público
+  nota             String?
+  esVisibleCliente Boolean   @default(false)
   creadoEn         DateTime  @default(now())
 
   ordenId String
@@ -312,7 +310,7 @@ model Repuesto {
   precioCompra  Decimal? @db.Decimal(10, 2)
   precioVenta   Decimal  @db.Decimal(10, 2)
   stockActual   Int      @default(0)
-  stockMinimo   Int      @default(1) // alerta de reposición
+  stockMinimo   Int      @default(1)
   activo        Boolean  @default(true)
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
@@ -320,6 +318,7 @@ model Repuesto {
   localId String
   local   Local  @relation(fields: [localId], references: [id])
 
+  // FIX 1: categoriaId ahora correctamente relacionado con CategoriaRepuesto
   categoriaId String?
   categoria   CategoriaRepuesto? @relation(fields: [categoriaId], references: [id])
 
@@ -332,6 +331,7 @@ model Repuesto {
 
 // ─────────────────────────────────────────────
 // CATEGORÍAS DE REPUESTOS
+// FIX 1: modelo que faltaba en las migrations anteriores
 // ─────────────────────────────────────────────
 
 model CategoriaRepuesto {
@@ -349,6 +349,10 @@ model CategoriaRepuesto {
   @@unique([organizacionId, nombre])
   @@map("categorias_repuestos")
 }
+
+// ─────────────────────────────────────────────
+// ÓRDENES DE COMPRA (reposición de repuestos)
+// ─────────────────────────────────────────────
 
 enum EstadoOrdenCompra {
   BORRADOR
@@ -400,18 +404,22 @@ model ItemOrdenCompra {
 }
 
 // ─────────────────────────────────────────────
-// NOTIFICACIONES DE EMAIL
+// NOTIFICACIONES
+// FIX 3: canal agregado (EMAIL / WHATSAPP / LINK_WHATSAPP)
+//         telefonoDestino para envíos WhatsApp
 // ─────────────────────────────────────────────
 
 model Notificacion {
-  id           String           @id @default(cuid())
-  tipo         TipoNotificacion
-  asunto       String
-  cuerpo       String           @db.Text
-  estadoEnvio  EstadoEnvio      @default(PENDIENTE)
-  errorMensaje String?
-  enviadoEn    DateTime?
-  creadoEn     DateTime         @default(now())
+  id              String            @id @default(cuid())
+  tipo            TipoNotificacion
+  canal           CanalNotificacion @default(EMAIL)
+  asunto          String?           // opcional en WhatsApp
+  cuerpo          String            @db.Text
+  telefonoDestino String?           // requerido si canal = WHATSAPP o LINK_WHATSAPP
+  estadoEnvio     EstadoEnvio       @default(PENDIENTE)
+  errorMensaje    String?
+  enviadoEn       DateTime?
+  creadoEn        DateTime          @default(now())
 
   ordenId String?
   orden   OrdenTrabajo? @relation(fields: [ordenId], references: [id])
@@ -423,10 +431,17 @@ model Notificacion {
 }
 
 enum TipoNotificacion {
-  CAMBIO_ESTADO // OT pasó a nuevo estado
-  LISTO_RETIRO // equipo listo para retirar
-  PRESUPUESTO // presupuesto enviado para aprobación
-  RECORDATORIO // OT sin movimiento por N días
+  CAMBIO_ESTADO
+  LISTO_RETIRO
+  PRESUPUESTO
+  RECORDATORIO
+}
+
+// FIX 3: nuevo enum para canal de notificación
+enum CanalNotificacion {
+  EMAIL
+  WHATSAPP       // whatsapp-web.js (fase 2)
+  LINK_WHATSAPP  // botón wa.me con mensaje prellenado (fase 1, lanzamiento)
 }
 
 enum EstadoEnvio {
