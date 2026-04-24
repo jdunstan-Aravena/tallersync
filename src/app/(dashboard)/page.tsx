@@ -119,7 +119,7 @@ export default async function DashboardPage() {
           <div className="stat-value">{stats.assignedLocals}</div>
         </Link>
         <Link href="/tecnicos" className="stat-card stat-card-link">
-          <div className="stat-label">Equipo activo</div>
+          <div className="stat-label">Técnicos activos</div>
           <div className="stat-value">{stats.teamSize}</div>
         </Link>
         <Link href="/ordenes" className="stat-card stat-card-link">

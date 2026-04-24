@@ -1,4 +1,4 @@
-import { getTecnicos } from "./actions"
+import { getProveedores, getTecnicos } from "./actions"
 import CreatePurchaseOrderFormClient from "./CreatePurchaseOrderFormClient"
 import type { PurchaseSuggestionGroup } from "../dashboard-data"
 
@@ -7,7 +7,7 @@ type CreatePurchaseOrderFormProps = {
 }
 
 export default async function CreatePurchaseOrderForm({ group }: CreatePurchaseOrderFormProps) {
-  const tecnicos = await getTecnicos()
+  const [tecnicos, proveedores] = await Promise.all([getTecnicos(), getProveedores()])
 
-  return <CreatePurchaseOrderFormClient group={group} tecnicos={tecnicos} />
+  return <CreatePurchaseOrderFormClient group={group} tecnicos={tecnicos} proveedores={proveedores} />
 }

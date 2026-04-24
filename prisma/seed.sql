@@ -57,15 +57,25 @@ VALUES
 ON CONFLICT ("organizacionId", nombre) DO NOTHING;
 
 -- ─────────────────────────────────────────────
+-- PROVEEDORES
+-- ─────────────────────────────────────────────
+INSERT INTO proveedores (id, nombre, email, telefono, "contactoNombre", direccion, notas, activo, "organizacionId", "creadoEn", "actualizadoEn")
+VALUES
+  ('prov-electromax', 'Electromax Chile',        'ventas@electromax.cl',      '+56 2 2456 7788', 'Andrea Rojas', 'Av. Industrial 450, Santiago', 'Proveedor de electrónica y línea blanca', true, 'org-tallersync-demo', NOW(), NOW()),
+  ('prov-refriandes', 'RefriAndes SpA',          'compras@refriandes.cl',     '+56 2 2567 8899', 'Matías Núñez', 'Camino a Melipilla 10200, Maipú', 'Especialista en refrigeración', true, 'org-tallersync-demo', NOW(), NOW()),
+  ('prov-servipartes','ServiPartes Mayorista',   'contacto@servipartes.cl',   '+56 2 2678 9900', 'Camila Pérez', 'Panamericana Norte 123, Quilicura', 'Despacho 24 a 48 horas en RM', true, 'org-tallersync-demo', NOW(), NOW())
+ON CONFLICT ("organizacionId", nombre) DO NOTHING;
+
+-- ─────────────────────────────────────────────
 -- REPUESTOS
 -- ─────────────────────────────────────────────
-INSERT INTO repuestos (id, nombre, sku, descripcion, "precioCompra", "precioVenta", "stockActual", "stockMinimo", activo, "localId", "categoriaId", "creadoEn", "actualizadoEn")
+INSERT INTO repuestos (id, nombre, sku, descripcion, "precioCompra", "precioVenta", "stockActual", "stockMinimo", activo, "localId", "categoriaId", "proveedorId", "creadoEn", "actualizadoEn")
 VALUES
-  ('rep-001', 'Tarjeta de control lavadora',  'TRJ-LAV-001', 'Compatible Samsung y LG',         25000, 45000, 3, 1, true, 'loc-santiago-centro', 'cat-electronica',   NOW(), NOW()),
-  ('rep-002', 'Correa secadora universal',    'COR-SEC-001', 'L=1200mm, ancho 8mm',              3500,  8000,  8, 2, true, 'loc-santiago-centro', 'cat-mecanica',      NOW(), NOW()),
-  ('rep-003', 'Compresor frigorífico 1/5 HP', 'CMP-FRG-015', 'Para refrigeradores 200-350 lts', 55000, 95000, 1, 1, true, 'loc-santiago-centro', 'cat-refrigeracion', NOW(), NOW()),
-  ('rep-004', 'Mecha resistencia horno',      'RES-HOR-001', 'Universal 220V 2000W',             4000,  9000,  5, 2, true, 'loc-santiago-centro', 'cat-electronica',   NOW(), NOW()),
-  ('rep-005', 'Correa lavadora LG',           'COR-LAV-LG1', 'Original LG 6602-001655',         4500,  10000, 4, 2, true, 'loc-maipu',           'cat-mecanica',      NOW(), NOW())
+  ('rep-001', 'Tarjeta de control lavadora',  'TRJ-LAV-001', 'Compatible Samsung y LG',         25000, 45000, 3, 1, true, 'loc-santiago-centro', 'cat-electronica',   'prov-electromax', NOW(), NOW()),
+  ('rep-002', 'Correa secadora universal',    'COR-SEC-001', 'L=1200mm, ancho 8mm',              3500,  8000,  8, 2, true, 'loc-santiago-centro', 'cat-mecanica',      'prov-servipartes', NOW(), NOW()),
+  ('rep-003', 'Compresor frigorífico 1/5 HP', 'CMP-FRG-015', 'Para refrigeradores 200-350 lts', 55000, 95000, 1, 1, true, 'loc-santiago-centro', 'cat-refrigeracion', 'prov-refriandes', NOW(), NOW()),
+  ('rep-004', 'Mecha resistencia horno',      'RES-HOR-001', 'Universal 220V 2000W',             4000,  9000,  5, 2, true, 'loc-santiago-centro', 'cat-electronica',   'prov-electromax', NOW(), NOW()),
+  ('rep-005', 'Correa lavadora LG',           'COR-LAV-LG1', 'Original LG 6602-001655',         4500,  10000, 4, 2, true, 'loc-maipu',           'cat-mecanica',      'prov-servipartes', NOW(), NOW())
 ON CONFLICT ("localId", sku) DO NOTHING;
 
 -- ─────────────────────────────────────────────

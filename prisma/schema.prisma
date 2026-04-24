@@ -28,6 +28,7 @@ model Organizacion {
   locales             Local[]
   usuarios            Usuario[]
   clientes            Cliente[]
+  proveedores         Proveedor[]
   categoriasRepuestos CategoriaRepuesto[]
 
   @@map("organizaciones")
@@ -318,6 +319,9 @@ model Repuesto {
   localId String
   local   Local  @relation(fields: [localId], references: [id])
 
+  proveedorId String?
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
+
   // FIX 1: categoriaId ahora correctamente relacionado con CategoriaRepuesto
   categoriaId String?
   categoria   CategoriaRepuesto? @relation(fields: [categoriaId], references: [id])
@@ -327,6 +331,28 @@ model Repuesto {
 
   @@unique([localId, sku])
   @@map("repuestos")
+}
+
+model Proveedor {
+  id             String   @id @default(cuid())
+  nombre         String
+  email          String
+  telefono       String?
+  contactoNombre String?
+  direccion      String?
+  notas          String?
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id])
+
+  repuestos    Repuesto[]
+  ordenesCompra OrdenCompra[]
+
+  @@unique([organizacionId, nombre])
+  @@map("proveedores")
 }
 
 // ─────────────────────────────────────────────
@@ -365,14 +391,18 @@ model OrdenCompra {
   id            String            @id @default(cuid())
   numero        Int
   estado        EstadoOrdenCompra @default(BORRADOR)
-  proveedor     String?
+  proveedorNombre String?         @map("proveedor")
   nota          String?           @db.Text
   total         Decimal           @default(0) @db.Decimal(10, 2)
+  enviadoProveedorEn DateTime?
   creadoEn      DateTime          @default(now())
   actualizadoEn DateTime          @updatedAt
 
   localId String
   local   Local  @relation(fields: [localId], references: [id])
+
+  proveedorId String?
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
 
   creadoPorId String
   creadoPor   Usuario @relation("CreadoByOrdenesCompra", fields: [creadoPorId], references: [id])

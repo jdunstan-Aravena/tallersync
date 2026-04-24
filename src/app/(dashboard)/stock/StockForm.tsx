@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useEffect, useEffectEvent, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormStatus } from "react-dom"
 import { saveStockAction, deleteStockAction, type StockActionState } from "./actions"
@@ -17,7 +17,12 @@ type StockItem = {
   activo: boolean
   creadoEn: string
   categoriaId?: string | null
+  proveedorId?: string | null
   categoria?: {
+    id: string
+    nombre: string
+  } | null
+  proveedor?: {
     id: string
     nombre: string
   } | null
@@ -28,9 +33,15 @@ type Categoria = {
   nombre: string
 }
 
+type Provider = {
+  id: string
+  nombre: string
+}
+
 type StockFormProps = {
   stocks: StockItem[]
   categorias: Categoria[]
+  providers: Provider[]
 }
 
 function SubmitButton({ editing }: { editing: boolean }) {
@@ -45,18 +56,21 @@ function SubmitButton({ editing }: { editing: boolean }) {
 
 const initialState: StockActionState = {}
 
-export default function StockForm({ stocks, categorias }: StockFormProps) {
+export default function StockForm({ stocks, categorias, providers }: StockFormProps) {
   const router = useRouter()
   const [state, formAction] = useActionState(saveStockAction, initialState)
   const [deleteState, deleteAction] = useActionState(deleteStockAction, initialState)
   const [selectedStock, setSelectedStock] = useState<StockItem | null>(null)
+  const handleMutationSuccess = useEffectEvent(() => {
+    router.refresh()
+    setSelectedStock(null)
+  })
 
   useEffect(() => {
     if (state.success || deleteState.success) {
-      router.refresh()
-      setSelectedStock(null)
+      handleMutationSuccess()
     }
-  }, [router, state.success, deleteState.success])
+  }, [state.success, deleteState.success])
 
   const isEditing = Boolean(selectedStock)
   const formKey = selectedStock?.id ?? "new"
@@ -193,6 +207,25 @@ export default function StockForm({ stocks, categorias }: StockFormProps) {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="form-label" htmlFor="proveedorId">
+                Proveedor habitual
+              </label>
+              <select
+                id="proveedorId"
+                name="proveedorId"
+                className="input"
+                defaultValue={selectedStock?.proveedorId ?? ""}
+              >
+                <option value="">Sin proveedor</option>
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -276,6 +309,7 @@ export default function StockForm({ stocks, categorias }: StockFormProps) {
                   <th>Nombre</th>
                   <th>SKU</th>
                   <th>Categoría</th>
+                  <th>Proveedor</th>
                   <th>Precio</th>
                   <th>Stock</th>
                   <th>Mínimo</th>
@@ -296,6 +330,9 @@ export default function StockForm({ stocks, categorias }: StockFormProps) {
                       <td style={{ color: "var(--color-text-tertiary)", fontSize: "0.875rem" }}>{stock.sku ?? "-"}</td>
                       <td style={{ color: "var(--color-text-tertiary)", fontSize: "0.875rem" }}>
                         {stock.categoria?.nombre ?? "-"}
+                      </td>
+                      <td style={{ color: "var(--color-text-tertiary)", fontSize: "0.875rem" }}>
+                        {stock.proveedor?.nombre ?? "-"}
                       </td>
                       <td style={{ color: "var(--color-text-tertiary)" }}>
                         ${parseFloat(stock.precioVenta).toFixed(2)}

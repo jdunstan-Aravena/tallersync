@@ -35,6 +35,8 @@ export type PurchaseSuggestion = {
   sku: string | null
   localId: string
   localNombre: string
+  proveedorId: string | null
+  proveedorNombre: string | null
   stockActual: number
   stockMinimo: number
   quantityToOrder: number
@@ -55,9 +57,12 @@ export type PurchaseOrderSummary = {
   id: string
   numero: number
   estado: EstadoOrdenCompra
-  proveedor: string | null
+  proveedorId: string | null
+  proveedorNombre: string | null
+  proveedorEmail: string | null
   nota: string | null
   total: number
+  enviadoProveedorEn: Date | null
   creadoEn: Date
   localId: string
   localNombre: string
@@ -98,6 +103,10 @@ function buildPurchaseSuggestions(
     precioCompra: unknown
     precioVenta: unknown
     localId: string
+    proveedorId: string | null
+    proveedor: {
+      nombre: string
+    } | null
     local: {
       nombre: string
     }
@@ -115,6 +124,8 @@ function buildPurchaseSuggestions(
         sku: repuesto.sku,
         localId: repuesto.localId,
         localNombre: repuesto.local.nombre,
+        proveedorId: repuesto.proveedorId,
+        proveedorNombre: repuesto.proveedor?.nombre ?? null,
         stockActual: repuesto.stockActual,
         stockMinimo: repuesto.stockMinimo,
         quantityToOrder,
@@ -244,6 +255,7 @@ export const getDashboardOverview = cache(async () => {
     prisma.usuario.count({
       where: {
         organizacionId: context.organization.id,
+        rol: Rol.TECNICO,
         activo: true,
       },
     }),
@@ -305,6 +317,10 @@ export const getDashboardOverview = cache(async () => {
         precioCompra: true,
         precioVenta: true,
         localId: true,
+        proveedorId: true,
+        proveedor: {
+          select: { nombre: true },
+        },
         local: {
           select: { nombre: true },
         },
@@ -371,6 +387,13 @@ export const getPurchaseOrdersPageData = cache(async () => {
       creadoPor: {
         select: { nombre: true },
       },
+      proveedor: {
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+        },
+      },
       tecnicoAsignado: {
         select: { nombre: true },
       },
@@ -388,9 +411,12 @@ export const getPurchaseOrdersPageData = cache(async () => {
       id: order.id,
       numero: order.numero,
       estado: order.estado,
-      proveedor: order.proveedor,
+      proveedorId: order.proveedorId ?? null,
+      proveedorNombre: order.proveedor?.nombre ?? order.proveedorNombre ?? null,
+      proveedorEmail: order.proveedor?.email ?? null,
       nota: order.nota,
       total: Number(order.total),
+      enviadoProveedorEn: order.enviadoProveedorEn ?? null,
       creadoEn: order.creadoEn,
       localId: order.localId,
       localNombre: order.local.nombre,

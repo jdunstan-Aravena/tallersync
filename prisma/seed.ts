@@ -137,6 +137,59 @@ async function main() {
   })
   console.log("✓ Usuarios asignados a locales")
 
+  // ── Proveedores ───────────────────────────────
+  const providers = [
+    {
+      nombre: "Electromax Chile",
+      email: "ventas@electromax.cl",
+      contactoNombre: "Andrea Rojas",
+      telefono: "+56 2 2456 7788",
+      direccion: "Av. Industrial 450, Santiago",
+      notas: "Proveedor de electrónica y línea blanca",
+    },
+    {
+      nombre: "RefriAndes SpA",
+      email: "compras@refriandes.cl",
+      contactoNombre: "Matías Núñez",
+      telefono: "+56 2 2567 8899",
+      direccion: "Camino a Melipilla 10200, Maipú",
+      notas: "Especialista en refrigeración",
+    },
+    {
+      nombre: "ServiPartes Mayorista",
+      email: "contacto@servipartes.cl",
+      contactoNombre: "Camila Pérez",
+      telefono: "+56 2 2678 9900",
+      direccion: "Panamericana Norte 123, Quilicura",
+      notas: "Despacho 24 a 48 horas en RM",
+    },
+  ]
+
+  for (const provider of providers) {
+    await prisma.proveedor.upsert({
+      where: {
+        organizacionId_nombre: {
+          organizacionId: org.id,
+          nombre: provider.nombre,
+        },
+      },
+      update: {
+        email: provider.email,
+        contactoNombre: provider.contactoNombre,
+        telefono: provider.telefono,
+        direccion: provider.direccion,
+        notas: provider.notas,
+        activo: true,
+      },
+      create: {
+        ...provider,
+        activo: true,
+        organizacionId: org.id,
+      },
+    })
+  }
+  console.log("✓ Proveedores creados")
+
   // ── Resumen de credenciales ────────────────────
   console.log("\n─────────────────────────────────────────")
   console.log("  Credenciales de acceso:")

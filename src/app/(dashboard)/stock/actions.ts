@@ -22,6 +22,7 @@ export async function saveStockAction(
   const stockActual = String(formData.get("stockActual") ?? "").trim()
   const stockMinimo = String(formData.get("stockMinimo") ?? "").trim()
   const categoriaId = String(formData.get("categoriaId") ?? "").trim()
+  const proveedorId = String(formData.get("proveedorId") ?? "").trim()
 
   if (!nombre || !precioVenta) {
     return { error: "El nombre y precio de venta son requeridos." }
@@ -39,6 +40,26 @@ export async function saveStockAction(
     const precioCompraDecimal = precioCompra ? parseFloat(precioCompra) : null
     const stockActualInt = parseInt(stockActual || "0")
     const stockMinimoInt = parseInt(stockMinimo || "1")
+    let validatedProviderId: string | null = null
+
+    if (proveedorId) {
+      const provider = await prisma.proveedor.findFirst({
+        where: {
+          id: proveedorId,
+          organizacionId: context.organization.id,
+          activo: true,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!provider) {
+        return { error: "No encontramos ese proveedor dentro de tu organización." }
+      }
+
+      validatedProviderId = provider.id
+    }
 
     if (stockId) {
       // Actualizar
@@ -53,6 +74,7 @@ export async function saveStockAction(
           stockActual: stockActualInt,
           stockMinimo: stockMinimoInt,
           categoriaId: categoriaId || null,
+          proveedorId: validatedProviderId,
         },
       })
 
@@ -72,6 +94,7 @@ export async function saveStockAction(
         stockMinimo: stockMinimoInt,
         localId,
         categoriaId: categoriaId || null,
+        proveedorId: validatedProviderId,
       },
     })
 

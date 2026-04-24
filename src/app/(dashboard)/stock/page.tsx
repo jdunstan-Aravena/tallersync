@@ -28,7 +28,14 @@ const getStocks = cache(async () => {
         activo: true,
         creadoEn: true,
         categoriaId: true,
+        proveedorId: true,
         categoria: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+        proveedor: {
           select: {
             id: true,
             nombre: true,
@@ -78,9 +85,33 @@ const getCategorias = cache(async () => {
   }
 })
 
+const getProviders = cache(async () => {
+  try {
+    const context = await getDashboardContext()
+
+    return await prisma.proveedor.findMany({
+      where: {
+        organizacionId: context.organization.id,
+        activo: true,
+      },
+      select: {
+        id: true,
+        nombre: true,
+      },
+      orderBy: {
+        nombre: "asc",
+      },
+    })
+  } catch (error) {
+    console.error("Error fetching providers:", error)
+    return []
+  }
+})
+
 export default async function StockPage() {
   const stocks = await getStocks()
   const categorias = await getCategorias()
+  const providers = await getProviders()
 
   return (
     <div>
@@ -93,7 +124,7 @@ export default async function StockPage() {
         </p>
       </div>
 
-      <StockForm stocks={stocks} categorias={categorias} />
+      <StockForm stocks={stocks} categorias={categorias} providers={providers} />
     </div>
   )
 }

@@ -168,9 +168,14 @@ export default async function OrdenesPage({ searchParams }: OrdenesPageProps) {
             Aquí reunimos tus órdenes de trabajo y la creación de órdenes de compra para {context.organization.nombre}.
           </p>
         </div>
-        <Link href="/agenda" className="btn btn-secondary">
-          Ir a agenda
-        </Link>
+        <div style={{ display: "flex", gap: "var(--spacing-sm)", flexWrap: "wrap" }}>
+          <Link href="/proveedores" className="btn btn-secondary">
+            Ver proveedores
+          </Link>
+          <Link href="/agenda" className="btn btn-secondary">
+            Ir a agenda
+          </Link>
+        </div>
       </div>
 
       <CreateWorkOrderForm
@@ -193,7 +198,7 @@ export default async function OrdenesPage({ searchParams }: OrdenesPageProps) {
               Crear órdenes de compra
             </h2>
             <p style={{ margin: "4px 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>
-              Cada formulario genera una OC nueva con los repuestos que hoy están bajo stock mínimo por local.
+              Cada formulario genera una OC nueva, la vincula a un proveedor y envía el correo automáticamente si la configuración está lista.
             </p>
           </div>
 
@@ -285,6 +290,7 @@ export default async function OrdenesPage({ searchParams }: OrdenesPageProps) {
                   <th>Local</th>
                   <th>Estado</th>
                   <th>Proveedor</th>
+                  <th>Correo</th>
                   <th>Técnico</th>
                   <th>Items</th>
                   <th>Total</th>
@@ -304,7 +310,10 @@ export default async function OrdenesPage({ searchParams }: OrdenesPageProps) {
                         {getOrderStatusLabel(order.estado)}
                       </span>
                     </td>
-                    <td>{order.proveedor ?? "Sin proveedor"}</td>
+                    <td>{order.proveedorNombre ?? "Sin proveedor"}</td>
+                    <td style={{ color: "var(--color-text-tertiary)" }}>
+                      {order.enviadoProveedorEn ? formatDateTime(order.enviadoProveedorEn) : "Pendiente"}
+                    </td>
                     <td>{order.tecnicoAsignadoNombre ?? "Sin asignar"}</td>
                     <td>{order.itemCount}</td>
                     <td>{formatCurrency(order.total)}</td>

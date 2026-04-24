@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useActionState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useFormStatus } from "react-dom"
@@ -11,9 +12,17 @@ type Tecnico = {
   nombre: string
 }
 
+type Proveedor = {
+  id: string
+  nombre: string
+  email: string
+  contactoNombre?: string | null
+}
+
 type CreatePurchaseOrderFormProps = {
   group: PurchaseSuggestionGroup
   tecnicos: Tecnico[]
+  proveedores: Proveedor[]
 }
 
 function formatCurrency(value: number) {
@@ -41,15 +50,19 @@ function SubmitButton() {
 
 const initialState: CreatePurchaseOrderState = {}
 
-export default function CreatePurchaseOrderForm({ group, tecnicos }: CreatePurchaseOrderFormProps) {
+export default function CreatePurchaseOrderForm({ group, tecnicos, proveedores }: CreatePurchaseOrderFormProps) {
   const router = useRouter()
   const [state, formAction] = useActionState(createPurchaseOrderAction, initialState)
+  const preferredProviderIds = Array.from(
+    new Set(group.items.map((item) => item.proveedorId).filter((value): value is string => Boolean(value)))
+  )
+  const defaultProviderId = preferredProviderIds.length === 1 ? preferredProviderIds[0] : ""
 
   useEffect(() => {
-    if (state.success) {
+    if (state.refresh) {
       router.refresh()
     }
-  }, [router, state.success])
+  }, [router, state.refresh])
 
   return (
     <div className="card">
@@ -77,24 +90,45 @@ export default function CreatePurchaseOrderForm({ group, tecnicos }: CreatePurch
             <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)" }}>
               Stock {item.stockActual} / mínimo {item.stockMinimo} · sugerido {item.quantityToOrder} un. · {formatCurrency(item.estimatedCost)}
             </div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-tertiary)", marginTop: 4 }}>
+              Proveedor habitual: {item.proveedorNombre ?? "Sin asignar"}
+            </div>
           </div>
         ))}
       </div>
 
+      {proveedores.length === 0 ? (
+        <div className="card-muted" style={{ display: "grid", gap: "var(--spacing-sm)" }}>
+          <strong style={{ fontSize: "var(--text-sm)" }}>No hay proveedores activos para emitir esta OC</strong>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>
+            Crea o reactiva proveedores para poder generar y enviar órdenes de compra por correo.
+          </span>
+          <Link href="/proveedores" className="btn btn-secondary" style={{ width: "fit-content" }}>
+            Ir a proveedores
+          </Link>
+        </div>
+      ) : (
       <form action={formAction} style={{ display: "grid", gap: "var(--spacing-md)" }}>
         <input type="hidden" name="localId" value={group.localId} />
 
         <div>
           <label className="form-label" htmlFor={`proveedor-${group.localId}`}>
-            Proveedor
+            Proveedor *
           </label>
-          <input
+          <select
             id={`proveedor-${group.localId}`}
-            name="proveedor"
-            type="text"
+            name="proveedorId"
             className={`input ${state.error ? "input-error" : ""}`}
-            placeholder="Opcional"
-          />
+            defaultValue={defaultProviderId}
+            required
+          >
+            <option value="">Selecciona un proveedor</option>
+            {proveedores.map((proveedor) => (
+              <option key={proveedor.id} value={proveedor.id}>
+                {proveedor.nombre} · {proveedor.email}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -138,6 +172,7 @@ export default function CreatePurchaseOrderForm({ group, tecnicos }: CreatePurch
 
         <SubmitButton />
       </form>
+      )}
     </div>
   )
 }

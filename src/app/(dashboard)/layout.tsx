@@ -70,6 +70,16 @@ function IconCategorias() {
   )
 }
 
+function IconProveedores() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 4.5h11v7h-11z" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 4.5V3a1 1 0 011-1h4a1 1 0 011 1v1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M2.5 8h11" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
 function IconReportes() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -137,6 +147,7 @@ const navMain: NavItem[] = [
 
 const navOperaciones: NavItem[] = [
   { href: "/stock", label: "Stock", icon: <IconStock /> },
+  { href: "/proveedores", label: "Proveedores", icon: <IconProveedores /> },
   { href: "/categorias", label: "Categorías", icon: <IconCategorias /> },
   { href: "/reportes", label: "Reportes", icon: <IconReportes /> },
   { href: "/ai", label: "SyncAI", icon: <IconAI /> },
