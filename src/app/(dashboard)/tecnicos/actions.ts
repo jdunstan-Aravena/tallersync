@@ -27,21 +27,31 @@ export async function saveTechnicianAction(
     const context = await getDashboardContext()
 
     if (technicianId) {
-      // Actualizar técnico existente
-      const updateData: any = {
+      const updateData: {
+        nombre: string
+        email: string
+        passwordHash?: string
+      } = {
         nombre,
         email,
       }
 
-      // Si se proporciona contraseña, actualizar
       if (password) {
         updateData.passwordHash = await bcrypt.hash(password, 12)
       }
 
-      await prisma.usuario.update({
-        where: { id: technicianId },
+      const result = await prisma.usuario.updateMany({
+        where: {
+          id: technicianId,
+          organizacionId: context.organization.id,
+          rol: "TECNICO",
+        },
         data: updateData,
       })
+
+      if (result.count === 0) {
+        return { error: "No encontramos ese técnico dentro de tu organización." }
+      }
 
       revalidatePath("/tecnicos")
       return { success: "Técnico actualizado correctamente." }
@@ -100,21 +110,38 @@ export async function deleteTechnicianAction(
   }
 
   try {
-    // Desasignar de órdenes primero
+    const context = await getDashboardContext()
+
     await prisma.ordenTrabajo.updateMany({
-      where: { tecnicoId: technicianId },
+      where: {
+        tecnicoId: technicianId,
+        local: {
+          organizacionId: context.organization.id,
+        },
+      },
       data: { tecnicoId: null },
     })
 
-    // Eliminar relaciones de usuario-local
     await prisma.usuarioLocal.deleteMany({
-      where: { usuarioId: technicianId },
+      where: {
+        usuarioId: technicianId,
+        local: {
+          organizacionId: context.organization.id,
+        },
+      },
     })
 
-    // Eliminar técnico
-    await prisma.usuario.delete({
-      where: { id: technicianId },
+    const result = await prisma.usuario.deleteMany({
+      where: {
+        id: technicianId,
+        organizacionId: context.organization.id,
+        rol: "TECNICO",
+      },
     })
+
+    if (result.count === 0) {
+      return { error: "No encontramos ese técnico dentro de tu organización." }
+    }
 
     revalidatePath("/tecnicos")
     return { success: "Técnico eliminado correctamente." }

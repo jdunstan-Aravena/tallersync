@@ -66,9 +66,24 @@ function getEstadoLabel(estado: string) {
 }
 
 export default async function DashboardPage() {
-  const { context, stats, recentOrders, purchaseSuggestions } = await getDashboardOverview()
+  const {
+    context,
+    stats,
+    recentOrders,
+    purchaseSuggestions,
+    readyForPickupOrderId,
+    readyForPickupOrderNumber,
+  } = await getDashboardOverview()
   const firstName = context.user.nombre.split(" ")[0] ?? context.user.nombre
   const todayLabel = formatLongDate(new Date())
+  const readyForPickupHref = readyForPickupOrderId ? `/ordenes?orderId=${readyForPickupOrderId}` : "/ordenes"
+  const tableLinkStyle = {
+    display: "block",
+    margin: "calc(var(--spacing-md) * -1) calc(var(--spacing-lg) * -1)",
+    padding: "var(--spacing-md) var(--spacing-lg)",
+    color: "inherit",
+    textDecoration: "none",
+  }
 
   return (
     <div className="page-content">
@@ -99,22 +114,22 @@ export default async function DashboardPage() {
         gap: "var(--spacing-md)",
         marginBottom: "var(--spacing-2xl)",
       }}>
-        <div className="stat-card">
+        <Link href="/configuracion" className="stat-card stat-card-link">
           <div className="stat-label">Locales activos</div>
           <div className="stat-value">{stats.assignedLocals}</div>
-        </div>
-        <div className="stat-card">
+        </Link>
+        <Link href="/tecnicos" className="stat-card stat-card-link">
           <div className="stat-label">Equipo activo</div>
           <div className="stat-value">{stats.teamSize}</div>
-        </div>
-        <div className="stat-card">
+        </Link>
+        <Link href="/ordenes" className="stat-card stat-card-link">
           <div className="stat-label">OTs abiertas</div>
           <div className="stat-value stat-value-brand">{stats.openOrders}</div>
-        </div>
-        <div className="stat-card">
+        </Link>
+        <Link href="/stock" className="stat-card stat-card-link">
           <div className="stat-label">Compras sugeridas</div>
           <div className="stat-value stat-value-warn">{stats.lowStockCount}</div>
-        </div>
+        </Link>
       </div>
 
       <div className="dashboard-panels" style={{
@@ -172,7 +187,7 @@ export default async function DashboardPage() {
             <Link href="/ordenes" className="btn btn-primary" style={{ width: "100%" }}>
               Ir a órdenes
             </Link>
-            <div className="card-muted">
+            <Link href="/stock" className="card-muted dashboard-link-card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--spacing-sm)", marginBottom: "var(--spacing-xs)" }}>
                 <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>
                   Alertas de abastecimiento
@@ -186,15 +201,17 @@ export default async function DashboardPage() {
                   ? `${stats.criticalPurchaseCount} repuesto(s) quedaron sin stock y conviene reponer primero.`
                   : "No hay productos críticos sin stock en este momento."}
               </p>
-            </div>
-            <div className="card-muted">
+            </Link>
+            <Link href={readyForPickupHref} className="card-muted dashboard-link-card">
               <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>
                 Listas para retiro
               </span>
               <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--color-text-tertiary)" }}>
-                Tienes {stats.readyForPickup} OT(s) listas para coordinar entrega.
+                {stats.readyForPickup > 0 && readyForPickupOrderNumber
+                  ? `Tienes ${stats.readyForPickup} OT(s) listas para retiro. Abriremos la #${String(readyForPickupOrderNumber).padStart(4, "0")}.`
+                  : "No hay OTs listas para retiro en este momento."}
               </p>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
@@ -236,25 +253,50 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((orden) => (
+                {recentOrders.map((orden) => {
+                  const orderHref = `/ordenes?orderId=${orden.id}`
+
+                  return (
                   <tr key={orden.id}>
                     <td style={{ color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)" }}>
-                      #{String(orden.numero).padStart(4, "0")}
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        #{String(orden.numero).padStart(4, "0")}
+                      </Link>
                     </td>
-                    <td>{`${orden.equipo.marca} ${orden.equipo.modelo}`}</td>
-                    <td>{orden.cliente.nombre}</td>
-                    <td>{orden.tecnico?.nombre ?? "Sin asignar"}</td>
                     <td>
-                      <span className={getEstadoBadgeClass(orden.estado)}>
-                        {getEstadoLabel(orden.estado)}
-                      </span>
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        {`${orden.equipo.marca} ${orden.equipo.modelo}`}
+                      </Link>
                     </td>
-                    <td>{orden.local.nombre}</td>
+                    <td>
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        {orden.cliente.nombre}
+                      </Link>
+                    </td>
+                    <td>
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        {orden.tecnico?.nombre ?? "Sin asignar"}
+                      </Link>
+                    </td>
+                    <td>
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        <span className={getEstadoBadgeClass(orden.estado)}>
+                          {getEstadoLabel(orden.estado)}
+                        </span>
+                      </Link>
+                    </td>
+                    <td>
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        {orden.local.nombre}
+                      </Link>
+                    </td>
                     <td style={{ color: "var(--color-text-tertiary)" }}>
-                      {formatShortDate(orden.fechaIngreso)}
+                      <Link href={orderHref} style={tableLinkStyle}>
+                        {formatShortDate(orden.fechaIngreso)}
+                      </Link>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -269,6 +311,27 @@ export default async function DashboardPage() {
       </div>
 
       <style>{`
+        .stat-card-link {
+          display: block;
+          color: inherit;
+          text-decoration: none;
+          transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+        }
+        .stat-card-link:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+        }
+        .dashboard-link-card {
+          display: block;
+          color: inherit;
+          text-decoration: none;
+          transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+        }
+        .dashboard-link-card:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+          border-color: var(--color-border-strong);
+        }
         @media (max-width: 1024px) {
           .dashboard-panels {
             grid-template-columns: 1fr !important;

@@ -23,15 +23,6 @@ function formatDateTime(date: Date | string) {
   }).format(value)
 }
 
-function formatShortDate(date: Date | string) {
-  const value = typeof date === "string" ? new Date(date) : date
-
-  return new Intl.DateTimeFormat("es-CL", {
-    day: "2-digit",
-    month: "short",
-  }).format(value)
-}
-
 function formatOrderNumber(number: number) {
   return `OC-${String(number).padStart(4, "0")}`
 }
@@ -66,53 +57,25 @@ function getOrderStatusBadge(status: string) {
   }
 }
 
-function getOtStatusBadge(status: string) {
-  switch (status) {
-    case "RECIBIDO":
-      return "badge badge-recibido"
-    case "EN_DIAGNOSTICO":
-      return "badge badge-diagnostico"
-    case "ESPERANDO_REPUESTO":
-      return "badge badge-repuesto"
-    case "EN_REPARACION":
-      return "badge badge-reparacion"
-    case "CONTROL_CALIDAD":
-      return "badge badge-calidad"
-    case "LISTO_RETIRO":
-      return "badge badge-listo"
-    case "ENTREGADO":
-      return "badge badge-entregado"
-    case "CANCELADO":
-      return "badge badge-danger"
-    default:
-      return "badge badge-neutral"
-  }
+type OrdenesPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-function getOtStatusLabel(status: string) {
-  switch (status) {
-    case "RECIBIDO":
-      return "Recibido"
-    case "EN_DIAGNOSTICO":
-      return "En diagnóstico"
-    case "ESPERANDO_REPUESTO":
-      return "Esperando repuesto"
-    case "EN_REPARACION":
-      return "En reparación"
-    case "CONTROL_CALIDAD":
-      return "Control calidad"
-    case "LISTO_RETIRO":
-      return "Listo para retiro"
-    case "ENTREGADO":
-      return "Entregado"
-    case "CANCELADO":
-      return "Cancelado"
-    default:
-      return status
+function getSearchParamValue(value: string | string[] | undefined) {
+  if (typeof value === "string" && value.length > 0) {
+    return value
   }
+
+  if (Array.isArray(value) && value[0]) {
+    return value[0]
+  }
+
+  return null
 }
 
-export default async function OrdenesPage() {
+export default async function OrdenesPage({ searchParams }: OrdenesPageProps) {
+  const resolvedSearchParams = await searchParams
+  const requestedOrderId = getSearchParamValue(resolvedSearchParams.orderId)
   const {
     context,
     purchaseSuggestions,
@@ -121,6 +84,54 @@ export default async function OrdenesPage() {
     recentOrders,
     stats,
   } = await getPurchaseOrdersPageData()
+  const localIds = context.locales.map((local) => local.id)
+
+  let orders = recentOrders
+
+  if (requestedOrderId && !recentOrders.some((order) => order.id === requestedOrderId)) {
+    const requestedOrder = await prisma.ordenTrabajo.findFirst({
+      where: {
+        id: requestedOrderId,
+        localId: { in: localIds },
+      },
+      select: {
+        id: true,
+        numero: true,
+        estado: true,
+        falla: true,
+        condicionIngreso: true,
+        fechaIngreso: true,
+        fechaCompromiso: true,
+        clienteId: true,
+        equipoId: true,
+        localId: true,
+        tecnicoId: true,
+        cliente: {
+          select: { nombre: true, email: true, telefono: true },
+        },
+        equipo: {
+          select: { tipo: true, marca: true, modelo: true, numeroSerie: true },
+        },
+        tecnico: {
+          select: { id: true, nombre: true },
+        },
+        local: {
+          select: { nombre: true },
+        },
+      },
+    })
+
+    if (requestedOrder) {
+      orders = [
+        {
+          ...requestedOrder,
+          fechaIngreso: requestedOrder.fechaIngreso.toISOString(),
+          fechaCompromiso: requestedOrder.fechaCompromiso?.toISOString() ?? null,
+        },
+        ...recentOrders.filter((order) => order.id !== requestedOrder.id),
+      ]
+    }
+  }
 
   const tecnicos = await prisma.usuario.findMany({
     where: {
@@ -165,8 +176,9 @@ export default async function OrdenesPage() {
       <CreateWorkOrderForm
         local={context.localPrincipal || context.locales[0]}
         locales={context.locales}
-        orders={recentOrders}
+        orders={orders}
         tecnicos={tecnicos}
+        initialOrderId={requestedOrderId}
       />
 
       <div className="orders-layout" style={{

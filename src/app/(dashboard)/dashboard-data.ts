@@ -232,13 +232,15 @@ export const getDashboardOverview = cache(async () => {
         lowStockCount: 0,
         criticalPurchaseCount: 0,
       },
+      readyForPickupOrderId: null as string | null,
+      readyForPickupOrderNumber: null as number | null,
       recentOrders: [],
       purchaseSuggestions: [] as PurchaseSuggestion[],
       purchaseSuggestionGroups: [] as PurchaseSuggestionGroup[],
     }
   }
 
-  const [teamSize, openOrders, readyForPickup, recentOrdersRaw, repuestos] = await Promise.all([
+  const [teamSize, openOrders, readyForPickup, recentOrdersRaw, repuestos, readyForPickupOrder] = await Promise.all([
     prisma.usuario.count({
       where: {
         organizacionId: context.organization.id,
@@ -308,6 +310,17 @@ export const getDashboardOverview = cache(async () => {
         },
       },
     }),
+    prisma.ordenTrabajo.findFirst({
+      where: {
+        localId: { in: localIds },
+        estado: EstadoOT.LISTO_RETIRO,
+      },
+      select: {
+        id: true,
+        numero: true,
+      },
+      orderBy: [{ fechaIngreso: "desc" }, { actualizadoEn: "desc" }],
+    }),
   ])
 
   const recentOrders = recentOrdersRaw.map((order) => ({
@@ -328,6 +341,8 @@ export const getDashboardOverview = cache(async () => {
       lowStockCount: purchaseSuggestions.length,
       criticalPurchaseCount: purchaseSuggestions.filter((item) => item.urgency === "critica").length,
     },
+    readyForPickupOrderId: readyForPickupOrder?.id ?? null,
+    readyForPickupOrderNumber: readyForPickupOrder?.numero ?? null,
     recentOrders,
     purchaseSuggestions,
     purchaseSuggestionGroups: groupPurchaseSuggestions(context.locales, purchaseSuggestions),

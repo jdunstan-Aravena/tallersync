@@ -5,11 +5,13 @@ import TechnicianForm from "./TechnicianForm"
 
 const getTechnicians = cache(async () => {
   try {
-    await getDashboardContext()
+    const context = await getDashboardContext()
 
     const technicians = await prisma.usuario.findMany({
       where: {
+        organizacionId: context.organization.id,
         rol: "TECNICO",
+        activo: true,
       },
       select: {
         id: true,

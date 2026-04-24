@@ -5,9 +5,12 @@ import ClientForm from "./ClientForm"
 
 const getClients = cache(async () => {
   try {
-    await getDashboardContext()
+    const context = await getDashboardContext()
 
     const clients = await prisma.cliente.findMany({
+      where: {
+        organizacionId: context.organization.id,
+      },
       select: {
         id: true,
         nombre: true,

@@ -28,8 +28,11 @@ export async function saveClientAction(
     const context = await getDashboardContext()
 
     if (clientId) {
-      await prisma.cliente.update({
-        where: { id: clientId },
+      const result = await prisma.cliente.updateMany({
+        where: {
+          id: clientId,
+          organizacionId: context.organization.id,
+        },
         data: {
           nombre,
           email: email || null,
@@ -38,6 +41,10 @@ export async function saveClientAction(
           notas: notas || null,
         },
       })
+
+      if (result.count === 0) {
+        return { error: "No encontramos ese cliente dentro de tu organización." }
+      }
 
       revalidatePath("/clientes")
       return { success: "Cliente actualizado correctamente." }
@@ -73,9 +80,18 @@ export async function deleteClientAction(
   }
 
   try {
-    await prisma.cliente.delete({
-      where: { id: clientId },
+    const context = await getDashboardContext()
+
+    const result = await prisma.cliente.deleteMany({
+      where: {
+        id: clientId,
+        organizacionId: context.organization.id,
+      },
     })
+
+    if (result.count === 0) {
+      return { error: "No encontramos ese cliente dentro de tu organización." }
+    }
 
     revalidatePath("/clientes")
     return { success: "Cliente eliminado correctamente." }

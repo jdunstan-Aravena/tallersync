@@ -1,9 +1,9 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState } from "react"
+import { useActionState, useEffect, useEffectEvent, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormStatus } from "react-dom"
-import type { TipoEquipo } from "@prisma/client"
+import type { EstadoOT, TipoEquipo } from "@prisma/client"
 import type { DashboardLocal } from "../dashboard-data"
 import WorkOrderTemplate from "./WorkOrderTemplate"
 import {
@@ -15,7 +15,7 @@ import {
 type WorkOrderItem = {
   id: string
   numero: number
-  estado: string
+  estado: EstadoOT
   localId: string
   local: { nombre: string }
   cliente: { nombre: string; email?: string | null; telefono?: string | null }
@@ -40,6 +40,7 @@ type CreateWorkOrderFormProps = {
   locales: DashboardLocal[]
   orders: WorkOrderItem[]
   tecnicos: Tecnico[]
+  initialOrderId?: string | null
 }
 
 function formatDateForInput(value?: string | Date | null) {
@@ -78,20 +79,57 @@ const equipoTipos = [
   { value: "OTRO" as TipoEquipo, label: "Otro" },
 ]
 
-export default function CreateWorkOrderForm({ local, locales, orders, tecnicos }: CreateWorkOrderFormProps) {
+export default function CreateWorkOrderForm({
+  local,
+  locales,
+  orders,
+  tecnicos,
+  initialOrderId = null,
+}: CreateWorkOrderFormProps) {
   const router = useRouter()
   const [state, formAction] = useActionState(saveWorkOrderAction, initialState)
   const [deleteState, deleteAction] = useActionState(deleteWorkOrderAction, initialState)
-  const [selectedOrder, setSelectedOrder] = useState<WorkOrderItem | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<WorkOrderItem | null>(() => {
+    if (!initialOrderId) {
+      return null
+    }
+
+    return orders.find((order) => order.id === initialOrderId) ?? null
+  })
   const [showPrintModal, setShowPrintModal] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
+  const formCardRef = useRef<HTMLDivElement>(null)
+  const lastInitialOrderIdRef = useRef<string | null>(null)
+  const resetAfterMutation = useEffectEvent(() => {
+    router.refresh()
+    setSelectedOrder(null)
+  })
+  const openInitialOrder = useEffectEvent((order: WorkOrderItem) => {
+    setSelectedOrder(order)
+    window.requestAnimationFrame(() => {
+      formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  })
 
   useEffect(() => {
     if (state.success || deleteState.success) {
-      router.refresh()
-      setSelectedOrder(null)
+      resetAfterMutation()
     }
-  }, [router, state.success, deleteState.success])
+  }, [state.success, deleteState.success])
+
+  useEffect(() => {
+    if (!initialOrderId || lastInitialOrderIdRef.current === initialOrderId) {
+      return
+    }
+
+    const matchedOrder = orders.find((order) => order.id === initialOrderId)
+
+    if (matchedOrder) {
+      openInitialOrder(matchedOrder)
+    }
+
+    lastInitialOrderIdRef.current = initialOrderId
+  }, [initialOrderId, orders])
 
   const isEditing = Boolean(selectedOrder)
   const formKey = selectedOrder?.id ?? "new"
@@ -128,7 +166,7 @@ export default function CreateWorkOrderForm({ local, locales, orders, tecnicos }
 
   return (
     <div style={{ display: "grid", gap: "var(--spacing-lg)", marginBottom: "var(--spacing-2xl)" }}>
-      <div className="card" style={{ padding: 0 }}>
+      <div ref={formCardRef} className="card" style={{ padding: 0 }}>
         <div style={{
           padding: "var(--spacing-lg) var(--spacing-xl)",
           borderBottom: "0.5px solid var(--color-border)",
@@ -501,7 +539,7 @@ export default function CreateWorkOrderForm({ local, locales, orders, tecnicos }
             <div ref={printRef} style={{ padding: "24px" }}>
               <WorkOrderTemplate
                 numero={selectedOrder.numero}
-                estado={selectedOrder.estado as any}
+                estado={selectedOrder.estado}
                 falla={selectedOrder.falla}
                 diagnostico={selectedOrder.diagnostico}
                 solucion={selectedOrder.solucion}
