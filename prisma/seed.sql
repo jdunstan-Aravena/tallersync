@@ -217,6 +217,24 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ─────────────────────────────────────────────
+-- FOTOS DE ÓRDENES DE TRABAJO
+-- ─────────────────────────────────────────────
+INSERT INTO fotos_ot (id, url, key, nombre, tipo, "ordenId", "creadoEn")
+VALUES
+  -- Fotos de OT 1 (en reparación)
+  ('foto-ot1-1', 'https://storage.tallersync.app/fotos/ot1/ingreso-001.jpg', 'fotos/ot1/ingreso-001.jpg', 'Estado inicial lavadora', 'INGRESO', 'ot-001', NOW() - INTERVAL '3 days'),
+  ('foto-ot1-2', 'https://storage.tallersync.app/fotos/ot1/proceso-001.jpg', 'fotos/ot1/proceso-001.jpg', 'Correa desgastada', 'PROCESO', 'ot-001', NOW() - INTERVAL '1 day'),
+  
+  -- Fotos de OT 2 (lista para retiro)
+  ('foto-ot2-1', 'https://storage.tallersync.app/fotos/ot2/ingreso-001.jpg', 'fotos/ot2/ingreso-001.jpg', 'Estado inicial refrigerador', 'INGRESO', 'ot-002', NOW() - INTERVAL '7 days'),
+  ('foto-ot2-2', 'https://storage.tallersync.app/fotos/ot2/entrega-001.jpg', 'fotos/ot2/entrega-001.jpg', 'Equipo reparado', 'ENTREGA', 'ot-002', NOW() - INTERVAL '1 day'),
+  
+  -- Fotos de OT 4 (en diagnóstico)
+  ('foto-ot4-1', 'https://storage.tallersync.app/fotos/ot4/ingreso-001.jpg', 'fotos/ot4/ingreso-001.jpg', 'Lavadora ingresada', 'INGRESO', 'ot-004', NOW() - INTERVAL '1 day'),
+  ('foto-ot4-2', 'https://storage.tallersync.app/fotos/ot4/proceso-001.jpg', 'fotos/ot4/proceso-001.jpg', 'Tarjeta de control', 'PROCESO', 'ot-004', NOW())
+ON CONFLICT (id) DO NOTHING;
+
+-- ─────────────────────────────────────────────
 -- NOTIFICACIONES (Fix 3: canal incluido)
 -- ─────────────────────────────────────────────
 INSERT INTO notificaciones (id, tipo, canal, asunto, cuerpo, "telefonoDestino", "estadoEnvio", "enviadoEn", "ordenId", "clienteId", "creadoEn")

@@ -32,10 +32,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
+        if (!credentials?.email || !credentials?.password) {
+          console.log("❌ Credenciales vacías");
+          return null;
+        }
+
+        const email = (credentials.email as string).toLowerCase().trim();
+        console.log("🔍 Intentando login con email:", email);
 
         const usuario = await prisma.usuario.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
           include: {
             organizacion: true,
             locales: {
@@ -44,16 +50,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               take: 1,
             },
           },
-        })
+        });
 
-        if (!usuario || !usuario.activo) return null
+        console.log("👤 Usuario encontrado:", usuario ? "SÍ" : "NO");
+        if (usuario) {
+          console.log("   ID:", usuario.id);
+          console.log("   Email en BD:", usuario.email);
+          console.log("   Activo:", usuario.activo);
+          console.log("   Hash length:", usuario.passwordHash?.length);
+          console.log("   Hash empieza con:", usuario.passwordHash?.substring(0, 7));
+        }
+
+        if (!usuario || !usuario.activo) {
+          console.log("❌ Usuario no encontrado o inactivo");
+          return null;
+        }
 
         const passwordOk = await bcrypt.compare(
           credentials.password as string,
           usuario.passwordHash
-        )
+        );
 
-        if (!passwordOk) return null
+        console.log("🔑 Comparación de contraseña:", passwordOk ? "✅ CORRECTA" : "❌ INCORRECTA");
+
+        if (!passwordOk) return null;
 
         // 🔴 NORMALIZACIÓN DE DATOS (CLAVE)
         return {
