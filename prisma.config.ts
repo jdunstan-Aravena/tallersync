@@ -8,6 +8,6 @@ export default defineConfig({
     seed: "npm run db:seed",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: env("DATABASE_URL_DIRECT"),
   },
 })

@@ -54,8 +54,8 @@ async function main() {
 
   // ── Usuarios ──────────────────────────────────
   const passwordAdmin    = await bcrypt.hash("Admin1234!", 12)
-  const passwordTecnico  = await bcrypt.hash("Tecnico123!", 12)
-  const passwordRecepcion = await bcrypt.hash("Recepcion123!", 12)
+  const passwordTecnico  = await bcrypt.hash("Admin1234!", 12)
+  const passwordRecepcion = await bcrypt.hash("Admin1234!", 12)
 
   const admin = await prisma.usuario.upsert({
     where:  { email: "admin@tallersync.app" },
